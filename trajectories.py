@@ -28,6 +28,7 @@ class CircleTrajectory(Trajectory):
         self.center = np.array(center)
         self.radius = radius
         self.w = angular_velocity
+        self.duration = 2 * np.pi / self.w
 
     def evaluate(self, t: float) -> np.ndarray:
         x_offset = self.radius * np.cos(self.w * t)
@@ -48,6 +49,7 @@ class Figure8Trajectory(Trajectory):
         self.center = np.array(center)
         self.scale = scale
         self.w = angular_velocity
+        self.duration = 2 * np.pi / self.w
 
     def evaluate(self, t: float) -> np.ndarray:
         # Lemniscate of Gerono
