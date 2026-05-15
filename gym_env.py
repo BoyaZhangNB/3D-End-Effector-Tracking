@@ -18,9 +18,9 @@ class FrankaEnv(MujocoEnv, EzPickle):
         EzPickle.__init__(self, trajectory, xml_path, frame_skip, delay_steps, noise_std, **kwargs)
         
         self.trajectory = trajectory
-
+        self.frames = np.array([])
         # Loss constants
-        self.cv = 0
+        self.cv = 0.2
         
         # Delay and noise parameters
         self.delay_steps = delay_steps
@@ -111,7 +111,7 @@ class FrankaEnv(MujocoEnv, EzPickle):
         
         # 2. Velocity penalty
         vel_penalty = np.sum(np.square(qvel), axis=1) 
-        
+
         # Using negative cost as the reward directly.
         self.reward_dict["r_total"] = -(traj_cost + self.cv * vel_penalty)
 
@@ -145,4 +145,10 @@ class FrankaEnv(MujocoEnv, EzPickle):
         
         return obs
 
-
+    def render(self):
+        ren = super().render()
+        if ren is not None:
+            if isinstance(self.frames, np.ndarray) and self.frames.size == 0:
+                self.frames = []
+            self.frames.append(ren)
+        return ren

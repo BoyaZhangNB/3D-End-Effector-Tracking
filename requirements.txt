@@ -3,5 +3,7 @@ numpy
 torch
 mujoco
 mbrl
-matplotlib
 tqdm
+tensorboard
+torchvision
+moviepy==1.0.3

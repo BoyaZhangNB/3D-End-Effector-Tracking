@@ -1,7 +1,5 @@
 import numpy as np
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from IPython import display
+from torch.utils.tensorboard import SummaryWriter
 import omegaconf
 from tqdm import tqdm
 
@@ -19,7 +17,7 @@ import mbrl.util as util
 
 seed = 0
 traj = CircleTrajectory(center=[0.5, 0.0, 0.5], radius=0.1, angular_velocity=1.0)
-env = FrankaEnv(traj)
+env = FrankaEnv(traj, render_mode="rgb_array")
 obs_shape = env.observation_space.shape
 act_shape = env.action_space.shape
 
@@ -123,39 +121,16 @@ agent = planning.create_trajectory_optim_agent_for_model(
     num_particles=20
 )
 
-train_losses = []
-val_scores = []
+writer = SummaryWriter()
 
 def train_callback(_model, _total_calls, _epoch, tr_loss, val_score, _best_val):
-    train_losses.append(tr_loss)
-    val_scores.append(val_score.mean().item())   # this returns val score per ensemble model
-
-def update_axes(_axs, _text, _trial, _steps_trial, _all_rewards, force_update=False):
-    if not force_update and (_steps_trial % 10 != 0):
-        return
-    _axs[0].set_xticks([])
-    _axs[0].set_yticks([])
-    _axs[1].clear()
-    _axs[1].set_xlim([0, num_trials + .1])
-    _axs[1].set_ylim([0, 200])
-    _axs[1].set_xlabel("Trial")
-    _axs[1].set_ylabel("Trial reward")
-    _axs[1].plot(_all_rewards, 'bs-')
-    _text.set_text(f"Trial {_trial + 1}: {_steps_trial} steps")
-    display.display(plt.gcf())  
-    display.clear_output(wait=True)
-    if force_update:
-        plt.savefig("training_plot.png")
+    writer.add_scalar('Loss/training_loss', tr_loss, _total_calls)
+    writer.add_scalar('Return/eval_return', val_score.mean().item(), _total_calls)
 
 # Create a trainer for the model
 model_trainer = models.ModelTrainer(dynamics_model, optim_lr=1e-3, weight_decay=5e-5)
 
-# Create visualization objects
-fig, axs = plt.subplots(1, 2, figsize=(14, 3.75), gridspec_kw={"width_ratios": [1, 1]})
-ax_text = axs[0].text(300, 50, "")
-
 # Main PETS loop
-all_rewards = [0]
 for trial in range(num_trials):
     obs = env.reset(None)    
     agent.reset()
@@ -164,8 +139,7 @@ for trial in range(num_trials):
     total_reward = 0.0
     print(f"======= Iteration {trial + 1} / {num_trials} =======")
     steps_trial = 0
-    pbar = tqdm(total=trial_length, desc=f"Trial {trial + 1}", ncols=100)
-    # update_axes(axs, ax_text, trial, steps_trial, all_rewards)
+    # pbar = tqdm(total=trial_length, desc=f"Trial {trial + 1}", ncols=100)
     while not terminated:
         # --------------- Model Training -----------------
         if steps_trial == 0:
@@ -186,20 +160,34 @@ for trial in range(num_trials):
                 num_epochs=50, 
                 patience=50, 
                 callback=train_callback)
+            
+        render_fn = env.render # if trial % 3 == 0 else None
+
+        def render_callback(info):
+            return render_fn() if render_fn is not None else None
 
         # --- Doing env step using the agent and adding to model dataset ---
         next_obs, reward, terminated, _ = common_util.step_env_and_add_to_buffer(
-            env, obs, agent, {}, replay_buffer)
+            env, obs, agent, {}, replay_buffer, callback=render_callback
+        )
             
-        # update_axes(axs, ax_text, trial, steps_trial, all_rewards)
         obs = next_obs
         total_reward += reward
         steps_trial += 1
-        pbar.update(1)
+        # pbar.update(1)
         if steps_trial == trial_length:
             break
     
-    all_rewards.append(total_reward)
+    writer.add_scalar('Return/train_return', total_reward, trial)
 
-pbar.close()
-update_axes(axs, ax_text, trial, steps_trial, all_rewards, force_update=True)
+    if hasattr(env, 'frames') and len(env.frames) > 0:
+        # Save the frames as a video in TensorBoard
+        video = np.stack(env.frames, axis=0)  # Shape: (num_frames, height, width, channels)
+        video = np.expand_dims(video.transpose(0, 3, 1, 2), axis=0)  # Shape: (batch, num_frames, channels, height, width)
+        writer.add_video(f'Trial_{trial + 1}_video', video, fps=10)
+        print(video.shape)
+        env.frames = []
+
+
+# pbar.close()
+writer.close()
