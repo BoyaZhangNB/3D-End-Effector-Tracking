@@ -162,7 +162,7 @@ for trial in range(num_trials):
     
     terminated = False
     total_reward = 0.0
-    print("======= Iteration {trial + 1} / {num_trials} =======")
+    print(f"======= Iteration {trial + 1} / {num_trials} =======")
     steps_trial = 0
     pbar = tqdm(total=trial_length, desc=f"Trial {trial + 1}", ncols=100)
     # update_axes(axs, ax_text, trial, steps_trial, all_rewards)
