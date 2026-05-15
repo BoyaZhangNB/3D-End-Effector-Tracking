@@ -139,7 +139,7 @@ for trial in range(num_trials):
     total_reward = 0.0
     print(f"======= Iteration {trial + 1} / {num_trials} =======")
     steps_trial = 0
-    # pbar = tqdm(total=trial_length, desc=f"Trial {trial + 1}", ncols=100)
+    pbar = tqdm(total=trial_length, desc=f"Trial {trial + 1}", ncols=100)
     while not terminated:
         # --------------- Model Training -----------------
         if steps_trial == 0:
@@ -174,7 +174,7 @@ for trial in range(num_trials):
         obs = next_obs
         total_reward += reward
         steps_trial += 1
-        # pbar.update(1)
+        pbar.update(1)
         if steps_trial == trial_length:
             break
     
@@ -185,9 +185,8 @@ for trial in range(num_trials):
         video = np.stack(env.frames, axis=0)  # Shape: (num_frames, height, width, channels)
         video = np.expand_dims(video.transpose(0, 3, 1, 2), axis=0)  # Shape: (batch, num_frames, channels, height, width)
         writer.add_video(f'Trial_{trial + 1}_video', video, fps=10)
-        print(video.shape)
         env.frames = []
 
 
-# pbar.close()
+pbar.close()
 writer.close()
