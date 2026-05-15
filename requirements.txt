@@ -4,3 +4,4 @@ torch
 mujoco
 mbrl
 matplotlib
+tqdm

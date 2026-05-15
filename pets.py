@@ -3,6 +3,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from IPython import display
 import omegaconf
+from tqdm import tqdm
 
 import torch
 from gym_env import FrankaEnv
@@ -143,6 +144,8 @@ def update_axes(_axs, _text, _trial, _steps_trial, _all_rewards, force_update=Fa
     _text.set_text(f"Trial {_trial + 1}: {_steps_trial} steps")
     display.display(plt.gcf())  
     display.clear_output(wait=True)
+    if force_update:
+        plt.savefig("training_plot.png")
 
 # Create a trainer for the model
 model_trainer = models.ModelTrainer(dynamics_model, optim_lr=1e-3, weight_decay=5e-5)
@@ -159,8 +162,10 @@ for trial in range(num_trials):
     
     terminated = False
     total_reward = 0.0
+    print("======= Iteration {trial + 1} / {num_trials} =======")
     steps_trial = 0
-    update_axes(axs, ax_text, trial, steps_trial, all_rewards)
+    pbar = tqdm(total=trial_length, desc=f"Trial {trial + 1}", ncols=100)
+    # update_axes(axs, ax_text, trial, steps_trial, all_rewards)
     while not terminated:
         # --------------- Model Training -----------------
         if steps_trial == 0:
@@ -186,16 +191,15 @@ for trial in range(num_trials):
         next_obs, reward, terminated, _ = common_util.step_env_and_add_to_buffer(
             env, obs, agent, {}, replay_buffer)
             
-        update_axes(
-            axs, ax_text, trial, steps_trial, all_rewards)
-        
+        # update_axes(axs, ax_text, trial, steps_trial, all_rewards)
         obs = next_obs
         total_reward += reward
         steps_trial += 1
-        
+        pbar.update(1)
         if steps_trial == trial_length:
             break
     
     all_rewards.append(total_reward)
 
+pbar.close()
 update_axes(axs, ax_text, trial, steps_trial, all_rewards, force_update=True)
